@@ -1,0 +1,16 @@
+# Workflow
+
+> These notes generally assume that you'll be doing some sort of linear regression, 
+> but the first couple of steps in your workflow are applicable to most analyses
+> and will help you figure out what kind of analysis you want to do.
+
+## Overview
+
+1. Decide on your question(s)
+  - Helps guide exploration and models
+2. Preliminary data exploration
+  - Helps determine answers to questions and guide model development
+3. Decide on a model
+4. Run model
+5. Check model diagnostics
+6. Interpret model

@@ -1,0 +1,50 @@
+p.caption {
+  color: #777;
+  margin-top: 10px;
+}
+p code {
+  white-space: inherit;
+}
+pre {
+  word-break: normal;
+  word-wrap: normal;
+}
+pre code {
+  white-space: inherit;
+}
+
+.align-centre {
+  text-align: center;
+}
+.align-middle {
+  vertical-align: middle;
+}
+.align-left {
+	float: left;
+}
+.align-right {
+	float: right;
+}
+
+.large {
+  font-weight: bold;
+  font-size: 125%;
+}
+
+.medium {
+  font-size: 110%;
+}
+
+.small {
+  font-size: 65%;
+  line-height: 1.5;
+}
+
+blockquote {
+  background-color: #c3d2db;
+}
+
+.csl-entry {
+  margin-bottom: 10px;
+}
+

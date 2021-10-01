@@ -1,0 +1,171 @@
+# Appendix Model Diagnostics {-}
+
+```{r, message = FALSE}
+library(tidyverse)
+library(palmerpenguins)
+library(car)
+
+library(lme4)
+library(glmmTMB)
+```
+
+There are many different kinds of model checking/diagnostics that need to be used for different kinds of models.
+
+a) normally distributed residuals (gaussian)
+b) constant variance in residuals (gaussian)
+c) checking for influential observations (all)
+d) assessing multiple collinearity (all)
+e) overdispersion (poisson and binomial)
+f) DHARMa package to assessing model fit using simulated residuals (all)
+
+> In this section we will cover how to run and interpret various diagnostics
+> that can be used for different types of models.
+
+## Diagnostics by hand {-}
+
+There are many functions for checking diagnostics in R but generally they only work with specific model types.
+
+However, many diagnostics simply require **fitted values** (model predictions)
+and **residuals** (model errors) which we can extract and use to create our own 
+diagnostic plots.
+
+### Extracting parameters {-}
+
+```{r}
+m <- lm(body_mass_g ~ flipper_length_mm + bill_length_mm, data = penguins)
+```
+
+
+- **`residuals()`**
+- **`fitted()` values**
+- **`cooks.distance()`**
+- **`as.numeric(names(residuals()))`** Observation number 
+  - (accounting for any omitted, missing values)
+
+```{r}
+d <- tibble(residuals = residuals(m),    
+            fitted = fitted(m),          
+            cooks = cooks.distance(m),
+            obs = as.numeric(names(residuals)))
+```
+
+```{r}
+head(d)
+```
+
+## Normality {-}
+
+QQ Normality plot of residuals
+```{r, fig.asp = 0.65, fig.width = 4}
+ggplot(data = d, aes(sample = residuals)) +
+  stat_qq() +
+  stat_qq_line()
+```
+
+## Variance {-}
+
+Check heteroscedasticity
+
+```{r, fig.asp = 0.7, fig.width = 4}
+ggplot(d, aes(x = fitted, y = residuals)) +
+  geom_point() +
+  geom_hline(yintercept = 0)
+```
+
+
+## Influence (Cook's D) {-}
+
+- When an observation has an unusually high effect on the model
+- If you omit an observation and the entire model changes, that observation is said to have a lot of *influence*
+- Cook's D is a way of measuring influence
+
+
+
+```{r, fig.asp = 0.5, fig.width = 5}
+ggplot(d, aes(x = obs, y = cooks)) +
+  geom_point()
+```
+
+Use ggiraph to get interactive tooltips (hover over a point to find which it is!)
+```{r, fig.asp = 0.5, fig.width = 5}
+library(ggiraph)
+g <- ggplot(d, aes(x = obs, y = cooks)) +
+  geom_point_interactive(aes(tooltip = obs))
+girafe(ggobj = g, width_svg = 6, height_svg = 3)
+```
+
+### Mixed models {-}
+
+In addition to the observation level effects (above) you'll also want to take 
+look at the random effects
+
+```{r}
+m <- lmer(body_mass_g ~ flipper_length_mm + bill_length_mm + (1|island), data = penguins)
+
+r <- as.data.frame(ranef(m))
+```
+
+QQ Normality plot of random effects
+```{r}
+ggplot(data = r, aes(sample = condval)) +
+  stat_qq() +
+  stat_qq_line()
+```
+
+
+## Multicollinearity {-}
+
+- Only relevant with **more than one explanatory variable**
+- Sometimes explanatory variables are so correlated they interfere with how you might interpret them
+  - Note that this means that if variables are only included as covariates 
+  (i.e. to control for their effects, not because you want to interpret them), 
+  then they can be highly correlated because their correlation won't affect other
+  parameters in the model^[(ref:collinearity)]
+- Correlations between variables *might* be problematic (but not necessarily)
+
+Use `vif()` function from `car` package^[vif = variance inflation factor; Can be interpreted as how much influence the variable has on the model]
+
+```{r, message = FALSE}
+vif(m)
+```
+
+
+> Interpreting VIF
+>  
+> - 1 means no correlation
+> - 1-5 means moderate but probably not a problem
+> - 5-10 is problematic, p-values may no longer be valid
+> - >10 FIX!
+
+
+## Overdispersion {-}
+
+> Coming!
+
+
+
+## DHARMa {-}
+
+```{r}
+library(DHARMa)
+
+r <- simulateResiduals(m, plot = TRUE)
+```
+
+```{r}
+m <- lm(body_mass_g ~ flipper_length_mm + bill_length_mm + species, data = penguins)
+r <- simulateResiduals(m, plot = TRUE)
+
+m <- lm(body_mass_g ~ flipper_length_mm + bill_length_mm + species * sex, data = penguins)
+r <- simulateResiduals(m, plot = TRUE)
+```
+
+### DHARMa is applicable to most linear models {-}
+
+```{r}
+penguins <- mutate(penguins, 
+                   size = flipper_length_mm > median(flipper_length_mm, na.rm = TRUE))
+
+m <- glm(size ~ species, family = "binomial", data = penguins)
+r <- simulateResiduals(m, plot = TRUE)
+```

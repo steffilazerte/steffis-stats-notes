@@ -1,0 +1,29 @@
+# Appendix Further Reading {-}
+
+
+## Diagnostics {-}
+
+- (ref:collinearity)
+
+## Interaction Terms {-}
+
+- If you center your variables, you *can* interpret the main effects with an interaction [@schielzeth_simple_2010]
+
+## Adjusted P-values {-}
+
+- Use Benjamini-Hochberg (False Discovery Rate, FDR) for P-value adjustment, not Bonferroni [@nakagawa_farewell_2004]
+
+## Mixed Models {-}
+
+- Use random slopes when you can [@schielzeth_conclusions_2009]
+- The MuMIn package calculates R<sup>2</sup> for mixed models [@nakagawa_general_2013  @nakagawa_coefficient_2017]
+- lmerTest package calculates P-values based on Satterthwaite's method for approximating degrees of freedom for *t* and *F* tests [@kuznetsova_lmertest_2017]
+
+
+## References {-}
+
+(ref:collinearity) [When Can you Safely Ignore Multicollinearity?](https://statisticalhorizons.com/multicollinearity)
+
+(ref:r2mee) [A General and Simple Method for Obtaining R2 from Generalized Linear Mixed-Effects Models](https://www.researchgate.net/publication/236002442_A_General_and_Simple_Method_for_Obtaining_R2_from_Generalized_Linear_Mixed-Effects_Models)
+
+

@@ -1,0 +1,13 @@
+fig:unnamed-chunk-3
+intro
+getting-started
+workflow
+overview
+data-exploration
+linear-models
+preamble
+general-workflow
+simple-lms-in-r
+regressions
+anovas
+type-i

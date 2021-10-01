@@ -1,0 +1,32 @@
+# Data Exploration
+
+It's a good idea to take a moment and write down the things you want to know in your
+study. 
+
+> What is the relationship between penguin size and sex?
+
+Then take another moment and see if you can be even more specific. 
+You want to start linking specific variables in your data to specific questions related to what you want to know.
+
+> - let's use size, measured as body mass in grams (`body_mass_g`)
+> - are female penguins larger than males? (`sex`)
+> - does this depend on the species? (`species`)
+
+Then think about variables that aren't your main interest, but might still have an influence (see Mixed Models for more details about these terms here)
+
+> Is there an effect of island? (`island`)
+> 
+> - Do I care about the specific island? (island as a fixed factor)
+> - Do I want to account for the sampling design across islands? (island as a random factor)
+
+
+The more specific you can be, the easier it will be to explore your data and then run your models.
+
+This first step is a visual exploration of your data, and you're doing it for two reasons:
+
+1. To see if you can *visually* answer your questions (which you will then *statistically* answer with your models)
+2. To learn more about your data, so you can choose the right model.
+
+
+
+

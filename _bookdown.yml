@@ -1,0 +1,5 @@
+book_filename: "steffis-practical-guide"
+delete_merged_file: true
+language:
+  ui:
+    chapter_name: "Chapter "

@@ -1,0 +1,694 @@
+# Linear Models
+
+```{r, include = FALSE}
+# For next time
+# - DO NOT interpret non-significant results
+# - Add significance to interpretations
+# - Add explanations of ANOVA levels
+
+knitr::opts_chunk$set(dpi = 150, fig.width = 8, out.width = "90%",
+                      fig.align = "center", fig.asp = 0.45, cache = FALSE, 
+                      warning = FALSE)
+
+library(knitr)
+hook_output <- knit_hooks$get("output")
+knit_hooks$set(output = function(x, options) {
+   lines <- options$output.lines
+   if (is.null(lines)) {
+     return(hook_output(x, options))  # pass to default hook
+   }
+   x <- unlist(strsplit(x, "\n"))
+   x <- x[lines]
+
+   # paste these lines together
+   x <- paste(c(x, ""), collapse = "\n")
+   hook_output(x, options)
+ })
+
+library(here)
+library(flair)
+library(glue)
+library(ggplot2)
+library(palmerpenguins)
+library(knitr)
+library(patchwork)
+options(width = 100)
+
+
+colourize <- function(x, colour) {
+  if (knitr::is_html_output()) {
+    sprintf("<span style='color: %s;'>%s</span>", colour,
+      x)
+  } else x
+}
+
+purple <- "#440154"
+teal <- "#277F8E"
+```
+
+## Preamble
+
+```{r, message = FALSE}
+library(tidyverse)
+library(palmerpenguins)
+library(patchwork) # putting figures together
+library(car) # For Anova() and vif() functions
+```
+
+Here we're talking about *linear* relationships. There are plenty of other types of models (e.g., exponential) which deal with non-linear relationships or a mix of linear and non-linear (e.g., GAMs).
+
+
+> **Disclaimer:**
+>
+> The models included here are examples, they're not the best (or most sensible) questions to ask, and often explore correlated features rather than features that we might actually assume causation.
+>
+> Technically these might be better explored using Standardised Major Axis Estimate (SMA) in the smatr package. But for now, the'll suffice `r emo::ji("grin")`
+>
+
+## General Workflow
+
+1. Decide on your question(s)
+2. Preliminary data exploration
+3. Decide on a model (linear model, generalized linear model, mixed model, etc.)
+4. Run model
+5. Check model diagnostics
+6. Interpret model
+
+
+## (Simple) LMs in R
+
+### Requirements {-}
+- **Continuous response** (`y`)
+  - no count data, no binary (binomial) data, no proprotions (although could be transformed)
+- **Continuous or categorical predictors** (`x1`, `x2`, etc.)
+
+### Assumptions {-}
+- **Linear relationship** between `y` and `x`s.
+- **Independence** - Observations are independent (i.e. residuals are independent)
+  - no hierarchical sampling, no nested designs, variables are based on each other
+- **Normality** - Residuals are normally distributed
+- **Constant variance** - There is constant variance in residuals (no heteroscedasticity)
+
+### Cautions {-}
+
+- **Multicollinearity**
+- **Influence**
+
+> See [Diagnostics](appendix-model-diagnostics.html) section for more details
+
+### Types of models {-}
+
+- **Regression** - Continuous predictor (`x`)
+- **Multiple regression** - More than one continuous predictor 
+  (`x1`, `x2`, ...)
+- **ANOVA** - Categorical predictor(s) (`x1`, `x2`, ...)
+- **ANCOVA** - Mix of categorical and continuous predictors (`x1`, `x2`, ...)
+
+
+### Run models with `lm()` {-}
+
+:::{.align-centre .large}
+`lm(y ~ x1 + x2, data = data)`
+:::
+
+> R will figure out the underlying model type (regression, ANOVA, ANCOVA etc.)
+
+
+
+Store your model as an object, here `m`
+
+```{r}
+m <- lm(body_mass_g ~ bill_depth_mm, data = penguins)
+```
+
+
+`m` is a model object
+```{r}
+class(m)
+```
+
+This contains all the information about the model
+
+Use `summary()` to show summary table:
+
+```{r}
+summary(m)
+```
+
+Use `anova()` to show Anova table (Type I), or, better, `Anova()` (from the car package) to use type II or III:
+```{r}
+Anova(m, type = "III")
+```
+
+### Summary tables vs. ANOVA tables {-}
+
+> **NOTE**  
+> Even though traditionally a summary table is used to evaluate a regression and 
+> an ANOVA table is used to evaluate an ANOVA or an ANCOVA, they can both be used
+> to assess any linear model, they just ask slightly different questions
+
+
+**Summary tables**
+
+Summary tables show the results of very specific statistical questions.
+The precise interpretation of these results depends on whether the parameters 
+are continuous, categorical, or a mix, and whether there are interactions or not.
+(see specific sections for interpretations).
+
+
+**ANOVA tables**
+
+Broadly, an ANOVA table asks whether there is an **overall** effect of any 
+parameter, but it **does not** specify what that effect is.
+
+This means that for *continuous* parameters you don't know if the effect is 
+positive or negative. 
+
+For *categorical* parameters you don't know which category has what effect
+(but see Post-Hoc analyses which can be used to tease this apart). 
+
+## Regressions
+
+- Continuous response (`y`) and **continuous** predictor(s) (`x`)
+- What might we be interested in?
+
+```{r, echo = FALSE, fig.asp = 0.8, fig.width = 7, message = FALSE}
+ggplot(data = penguins, aes(x = flipper_length_mm, y = body_mass_g)) +
+  geom_point() +
+  stat_smooth(method = "lm") +
+  ggtitle("Is penguin body mass a function of skeletal size?")
+
+ggplot(data = penguins, aes(x = bill_length_mm, y = body_mass_g)) +
+  geom_point() +
+  stat_smooth(method = "lm") +
+  ggtitle("Can body mass be predicted by flipper length and bill length?")
+```
+
+
+### Create Model {-}
+
+To see if these relationships are significant we run/create a linear model...
+
+```{r}
+m <- lm(body_mass_g ~ flipper_length_mm + bill_length_mm, data = penguins)
+```
+
+> **Wait!** We shouldn't interpret until we've checked our diagnostics
+
+
+### Model Diagnostics {-}
+
+- Checking Assumptions
+  - Normality (of residuals)
+  - Constant Variance (no heteroscedasticity)
+- Other cautions
+  - Influential observations (Cook's D)
+  - Multiple collinearity (with more than one `x` or explanatory variables)
+
+
+> See [Diagnostics](appendix-model-diagnostics.html) section for more details
+
+
+```{r}
+d <- data.frame(residuals = residuals(m),    
+                std_residuals = rstudent(m), 
+                fitted = fitted(m),          
+                cooks = cooks.distance(m)) %>%
+  mutate(obs = 1:n())
+```
+
+
+#### Normality and Heteroscedasticity {-}
+
+
+```{r, fig.asp = 0.7, fig.width = 8}
+g1 <- ggplot(data = d, aes(x = std_residuals)) +
+  geom_histogram(bins = 20) +
+  ggtitle("Histogram of residuals")
+
+g2 <- ggplot(data = d, aes(sample = std_residuals)) +
+  stat_qq() +
+  stat_qq_line() +
+  ggtitle("QQ Normality plot of residuals")
+
+g3 <- ggplot(d, aes(x = fitted, y = std_residuals)) +
+  geom_point() +
+  geom_hline(yintercept = 0) +
+  ggtitle("Heteroscedacity: Residuals vs. fitted")
+
+(g1 + g2) / g3
+```
+
+
+#### Influence {-}
+
+**Cook's D** 
+```{r}
+ggplot(d, aes(x = obs, y = cooks)) +
+  geom_point() +
+  geom_hline(yintercept = 1, linetype = "dotted") +
+  geom_hline(yintercept = 4/nrow(penguins), 
+             linetype = "dashed") +
+  ggtitle("Cook's D: Influential observations")
+```
+
+
+> Pretty good!
+
+
+
+#### Multicollinearity (collinearity) {-}
+
+Look at our two explanatory variables
+```{r, warning = FALSE, message = FALSE, fig.asp = 0.7, fig.width = 6}
+ggplot(data = penguins, aes(x = flipper_length_mm, y = bill_length_mm)) +
+  geom_point() +
+  stat_smooth(method = "lm")
+```
+
+> Definitely correlated.
+> We need to investigate if it interferes with the model.
+
+
+
+Use `vif()` function from `car` package^[vif = variance inflation factor; Can be interpreted as how much influence the variable has on the model]
+
+```{r, message = FALSE}
+library(car)
+vif(m)
+```
+
+> Hmm, that's pretty good (looking for < 10).
+> 
+> So we can assume that the correlation is not a problem for how we interpret the model
+
+
+### Summary Tables {-}
+
+```{r}
+m <- lm(body_mass_g ~ flipper_length_mm + bill_length_mm, data = penguins)
+summary(m)
+```
+
+
+```{r lm_summary2, echo = FALSE, eval = FALSE}
+summary(m)
+```
+
+That's a lot of information! Let's break it down.
+
+**Model**
+```{r, ref.label = "lm_summary2", output.lines=2:4, echo = FALSE}
+```
+
+**Missing observations**
+```{r, ref.label = "lm_summary2", output.lines=19:19, echo = FALSE}
+```
+
+**R<sup>2</sup> and adjusted R<sup>2</sup>**
+
+- Adjusted for the number of parameters
+
+```{r, ref.label = "lm_summary2", output.lines = 20, echo = FALSE}
+```
+
+
+**Effects**
+
+```{r, ref.label = "lm_summary2", output.lines=11:14, echo = FALSE}
+```
+
+```{r, echo = FALSE}
+tribble( ~Column,       ~Description,
+        "`Estimate`",   "Intercept/Slope of the effect",
+        "`Std. Error`", "Variability in the estimates",
+        "`t value`",    "Test statistic^[Think of it as a holistic combination of estimate and variability]",
+        "`Pr(>|t|)`",   "**P-value**, significance of the results^[Probability of getting `t-value` by chance]") %>%
+  kable(format = "html", escape = FALSE)
+```
+
+### Interpreting effects {-}
+
+```{r, ref.label = "lm_summary2", output.lines=11:14, echo = FALSE}
+```
+
+```{r, echo = FALSE, results = "asis"}
+broom::tidy(summary(m)) %>%
+  mutate(estimate = round(estimate, 2),
+         p.value = if_else(p.value < 2.2e-16, "< 2.2e-16", as.character(round(p.value, 3)))) %>%
+  glue_data(
+    "- **Intercept**",
+    "  - Significant (P = {p.value[1]})",
+    "  - Penguins with a flipper length of 0 mm and a bill length of 0 mm are predicted to have a body mass of {estimate[1]} g", 
+    
+    "- **Flipper Length**",
+    "  - Significant (P = {p.value[2]})",
+    "  - For each 1 mm increase in flipper length, body mass is predicted to increase by {estimate[2]} g", 
+    
+    "- **Bill Length**",
+    "  - Non-significant (P = {p.value[3]})",
+    "  - So we don't interpret)",
+    .sep = "\n")
+```
+
+(**Note**: 2e<sup>-16</sup> = 0.0000000000000002, R uses this as the smallest number)
+
+> **Therefore**
+> 
+> There is a significant relationship between flipper length and body mass.  
+> But *not* between bill length and body mass (when including and controlling for
+> flipper length)
+
+### Interpreting the effects as a model {-}
+
+First we have the general equation for a line^[(remember highschool?)]. 
+
+$y = mx + b$
+
+- $m$ = slope of $x$ 
+- $b$ = intercept    
+
+
+For two explanatory variables
+
+$y = m_1x_1 + m_2x_2 + b$
+
+For our specific model
+
+$y = `r round(coef(m)[2], 2)`x_1 + `r round(coef(m)[3], 2)`x_2 + (`r round(coef(m)[1], 2)`)$
+
+
+
+
+### Extra {-}
+
+> Why no effect of Bill Length? {-}
+
+
+```{r, message = FALSE, echo = FALSE, fig.asp = 1, fig.width = 5, out.width = "100%"}
+ggplot(data = penguins, aes(x = bill_length_mm, y = body_mass_g)) +
+  geom_point() +
+  stat_smooth(method = "lm") 
+```
+
+```{r, highlight.output = 12}
+m <- lm(body_mass_g ~ bill_length_mm, data = penguins)
+summary(m)
+```
+
+- Our hypothesis is of *causation* but really, this is just correlation
+- Flipper length is the 'better' predictor of body mass
+- When flipper length in the model, no extra variation explained by bill length
+- When flipper length *not* in the model, some variation left to be explained
+
+```{r, highlight.output = 12}
+m <- lm(body_mass_g ~ bill_length_mm, data = penguins)
+summary(m)
+```
+
+
+## ANOVAs 
+
+- Continuous response (`y`) and categorical predictor(s) (`x`)
+- What might we be interested in?
+
+```{r, echo = FALSE, fig.asp = 0.8, fig.width = 7, message = FALSE}
+ggplot(data = drop_na(penguins), aes(x = species, y = body_mass_g)) +
+  geom_boxplot() +
+  ggtitle("Are different species different sizes?")
+
+ggplot(data = drop_na(penguins), aes(x = sex, y = body_mass_g)) +
+  geom_boxplot() +
+  ggtitle("Are male penguins larger than female penguins?")
+```
+
+### Create Model {-}
+
+To see if these relationships are significant we run/create a linear model...
+
+```{r}
+m <- lm(body_mass_g ~ species + sex, data = penguins)
+```
+
+> But first diagnostics...
+
+
+### Model Diagnostics {-}
+
+> As with regressions...
+
+- Checking Assumptions
+  - Normality (of residuals)
+  - Constant Variance (no heteroscedasticity)
+- Other cautions
+  - Influential observations (Cook's D)
+  - Multiple collinearity (with more than one `x` or explanatory variables)
+
+
+> See [Diagnostics](appendix-model-diagnostics.html) section for more details
+
+
+```{r}
+d <- data.frame(residuals = residuals(m),    
+                std_residuals = rstudent(m), 
+                fitted = fitted(m),          
+                cooks = cooks.distance(m))   
+
+d <- mutate(d, obs = 1:n())
+```
+
+
+```{r}
+head(d)
+```
+
+
+#### Normality and Heteroscedasticity {-}
+
+
+```{r, fig.asp = 0.7, fig.width = 8}
+
+g1 <- ggplot(data = d, aes(x = std_residuals)) +
+  geom_histogram(bins = 20)
+
+g2 <- ggplot(data = d, aes(sample = std_residuals)) +
+  stat_qq() +
+  stat_qq_line()
+
+g3 <- ggplot(d, aes(x = fitted, y = std_residuals)) +
+  geom_point() +
+  geom_hline(yintercept = 0)
+
+(g1 + g2) / g3
+```
+
+#### Influence {-}
+
+**Cook's D**
+```{r, fig.asp = 0.50, fig.width = 5}
+ggplot(d, aes(x = obs, y = cooks)) +
+  geom_point() +
+  geom_hline(yintercept = 1, linetype = "dotted") + #<<
+  geom_hline(yintercept = 4/nrow(penguins), 
+             linetype = "dashed")
+```
+
+
+> Overall not too bad
+
+
+#### Multicollinearity (collinearity) {-}
+
+- Only relevant with **more than one explanatory variable**
+- Sometimes explanatory variables are so correlated they interfere with the model
+- Correlations between variables *might* be problematic (but not necessarily)
+
+Use `vif()` function from `car` package^[vif = variance inflation factor; Can be interpreted as how much influence the variable has on the model]
+
+```{r, message = FALSE}
+library(car)
+vif(m)
+```
+
+Here we consider the `GVIF^(1/2*Df))` value<sup>*</sup>
+
+Looks good!
+
+(\* See `?vif` and the reference therein: Fox, J. and Monette, G. (1992) Generalized collinearity diagnostics. JASA, 87, 178–183.)
+
+
+### Summary Tables {-}
+
+```{r}
+m <- lm(body_mass_g ~ species + sex, data = penguins)
+summary(m)
+```
+
+
+```{r anova_summary, echo = FALSE, eval = FALSE}
+summary(m)
+```
+
+That's a lot of information! Let's break it down.
+
+**Model**
+```{r, ref.label = "anova_summary", output.lines=2:3, echo = FALSE}
+```
+
+**Missing observations**
+```{r, ref.label = "anova_summary", output.lines=19:19, echo = FALSE}
+```
+
+**R<sup>2</sup> and adjusted R<sup>2</sup>**
+
+- Adjusted for the number of parameters
+
+```{r, ref.label = "anova_summary", output.lines = 20, echo = FALSE}
+```
+
+
+**Effects**
+
+```{r, ref.label = "anova_summary", output.lines=10:14, echo = FALSE}
+```
+
+```{r, echo = FALSE}
+tribble( ~Column,       ~Description,
+        "`Estimate`",   "Intercept/Slope/Mean difference of the effect",
+        "`Std. Error`", "Variability in the estimates",
+        "`t value`",    "Test statistic^[Think of it as a holistic combination of estimate and variability]",
+        "`Pr(>|t|)`",   "**P-value**, significance of the results^[Probability of getting `t-value` by chance]") %>%
+  kable(format = "html", escape = FALSE)
+```
+
+### Interpreting effects {-}
+
+```{r, ref.label = "anova_summary", output.lines=11:14, echo = FALSE}
+```
+
+
+- `Estimate`
+    - Treatment contrasts
+    - Average *differences* among categories compared to the base category
+    
+- `Std. Error` 
+    - Variability in the estimates
+    
+- `t value`
+   - Test statistic
+
+- `Pr(>|t|)` 
+    - **P-value**, significance of the *differences*
+    - Probability of getting `t-value` by chance
+
+> Easier to interpret estimates if we consider a simpler model
+
+
+**A simpler model**
+
+```{r}
+m <- lm(body_mass_g ~ species, data = penguins)
+```
+
+```{r anova_summary2, eval = FALSE}
+summary(m)
+```
+
+
+```{r, ref.label = "anova_summary2", echo = FALSE, output.lines = 11:13}
+```
+
+
+Effect of **Species**
+
+- `(Intercept)` represents base category (i.e. Adelie penguins)
+- Adelie have mean body mass of `r round(coef(m)[1], 2)` g 
+- On average, Chinstrap penguins are `r round(coef(m)[2], 2)` g heavier than Adelie penguins
+- On average, Gentoo penguins are `r round(coef(m)[3], 2)` g heavier than Adelie penguins
+
+
+> Back to original model
+
+```{r}
+m <- lm(body_mass_g ~ species + sex, data = penguins)
+```
+
+
+```{r, ref.label = "anova_summary", echo = FALSE, output.lines = 11:14}
+```
+
+Effect of **Species** and **Sex**
+
+- `(Intercept)` represents base category but is a combination of factors
+- Much more complicated to interpret
+- Comparisons are often not of interest anyway 
+  (unless you've set up contrasts, which are advanced stats but awesome!)
+
+> So let's look at ANOVA tables instead
+
+### ANOVA Tables {-}
+
+#### Type I
+
+```{r anova}
+anova(m)
+```
+
+#### Type III {-}
+```{r anova3}
+Anova(m, type = "3")
+```
+
+`Anova()` is from the car package. 
+
+
+Overall effects of **Species** and **Sex**
+
+- Yes there are differences among **Species** (P < 2.2e<sup>-16</sup>)
+- Yes there are differences between **Sexes** (P < 2.2e<sup>-16</sup>)
+
+> Not a whole lot of information... <br>We'll have to do some <strong>[Post-Hoc](#post-hoc-tests)</strong> tests!
+
+
+#### Type I vs. III {-}
+
+**Why one or the other?**
+
+```{r, highlight.output = 5:6}
+m1 <- lm(body_mass_g ~ species + sex, data = penguins) #<<
+anova(m1)
+```
+
+```{r, highlight.output = 5:6}
+m2 <- lm(body_mass_g ~ sex + species, data = penguins)#<<
+anova(m2)
+```
+
+- For Type I ANOVAs, order matters with unbalanced samples
+    - See that `Sum sq`, `Mean Sq` and `F value` all differ between the models
+- Here, pretty minor, but important to remember with greater unbalances
+
+
+
+```{r, ref.label = "anova3", echo = FALSE}
+```
+
+- Type III ANOVAs are not dependent on variable order
+
+
+> Type II ANOVAs do exist as well, but generally we use Type III in natural sciences
+
+
+### Post-Hoc tests {-}
+
+When you would like to understand differences between 2+ levels in a categorical variable, you'll need to do post-hoc tests.
+
+Note:
+
+- We do post-hoc tests *after* having found a *significant* of the variable in the ANOVA table.
+- There's no point in doing post-hoc tests unless you have a variable with more than three levels, OR you're interested in understanding the differences among categorical variables that also have an interaction
+- In our example, we don't need to do post-hoc tests for sex, because there are only two levels, `male` and `female`. If there is a difference, then males are different than females, no question.
+
+
+
+
